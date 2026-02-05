@@ -80,7 +80,7 @@ if datei1 and datei2:
             st.subheader("💾 Ergebnis exportieren")
             
             # DataFrame für Export erstellen
-            max_len = max(len(fehlen_in_ist), len(ueberfluessig_in_ist))
+            max_len = max(len(fehlen_in_ist), len(ueberfluessig_in_ist)) if fehlen_in_ist or ueberfluessig_in_ist else 0
             fehlen_padded = fehlen_in_ist + [''] * (max_len - len(fehlen_in_ist))
             ueberfluessig_padded = ueberfluessig_in_ist + [''] * (max_len - len(ueberfluessig_in_ist))
             
@@ -89,17 +89,17 @@ if datei1 and datei2:
                 'Überflüssig im Ist (nicht in Soll)': ueberfluessig_padded
             })
             
-            # Excel-Export vorbereiten
+            # Excel-Export vorbereiten mit korrekter Engine
             output = io.BytesIO()
-            with pd.ExcelWriter(output, engine='openpyxl') as writer:
-                df_export.to_excel(writer, index=False, sheet_name='Vergleich')
-            output.seek(0)
+            df_export.to_excel(output, index=False, engine='openpyxl')
+            excel_data = output.getvalue()
             
             st.download_button(
                 label="📥 Als Excel herunterladen",
-                data=output,
+                data=excel_data,
                 file_name="vergleichsergebnis.xlsx",
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                use_container_width=True
             )
             
     except Exception as e:
