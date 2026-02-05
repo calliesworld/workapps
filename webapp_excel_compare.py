@@ -11,18 +11,23 @@ st.markdown("Vergleiche zwei Excel-Dateien und finde Unterschiede zwischen Soll-
 with st.sidebar:
     st.header("📁 Dateien hochladen")
     
-    st.subheader("Soll-Tabelle (Tabelle 1)")
-    datei1 = st.file_uploader("Excel-Datei auswählen (Soll)", type=['xlsx', 'xls'], key="datei1")
+    st.subheader("Soll-Tabelle (Referenz)")
+    datei_soll = st.file_uploader("Excel-Datei auswählen (Soll)", type=['xlsx', 'xls'], key="datei_soll")
     
-    st.subheader("Ist-Tabelle (Tabelle 2)")
-    datei2 = st.file_uploader("Excel-Datei auswählen (Ist)", type=['xlsx', 'xls'], key="datei2")
+    st.subheader("Ist-Tabellen (Studiengänge)")
+    st.caption("Du kannst mehrere Dateien hochladen")
+    dateien_ist = st.file_uploader(
+        "Excel-Dateien auswählen (Ist)", 
+        type=['xlsx', 'xls'], 
+        accept_multiple_files=True,
+        key="dateien_ist"
+    )
 
 # Hauptbereich
-if datei1 and datei2:
+if datei_soll and dateien_ist:
     try:
-        # Dateien einlesen (Zeile 3 als Header)
-        df1 = pd.read_excel(datei1, header=2)
-        df2 = pd.read_excel(datei2, header=2)
+        # Soll-Datei einlesen (Zeile 1 als Header)
+        df_soll = pd.read_excel(datei_soll, header=0)
         
         # Automatische Erkennung von Vorname/Nachname-Spalten
         def finde_vorname_spalte(df):
@@ -47,58 +52,54 @@ if datei1 and datei2:
                     return col
             return None
         
-        # Für Tabelle 1
-        vorname1_auto = finde_vorname_spalte(df1)
-        nachname1_auto = finde_name_spalte(df1)
+        # Soll-Tabelle prüfen
+        vorname_soll = finde_vorname_spalte(df_soll)
+        name_soll = finde_name_spalte(df_soll)
         
-        # Für Tabelle 2
-        vorname2_auto = finde_vorname_spalte(df2)
-        nachname2_auto = finde_name_spalte(df2)
+        st.subheader("Soll-Tabelle")
+        if vorname_soll and name_soll:
+            st.success(f"✅ Erkannt: '{vorname_soll}' und '{name_soll}'")
+        else:
+            st.error(f"❌ Spalten 'Vorname' und 'Name' in Soll-Tabelle nicht gefunden!")
+            st.info(f"Gefunden: Vorname={vorname_soll}, Name={name_soll}")
+            st.info(f"Verfügbare Spalten: {', '.join(df_soll.columns)}")
+            st.stop()
         
-        # Prüfen ob alle Spalten gefunden wurden
-        col1, col2 = st.columns(2)
+        # Alle Ist-Tabellen einlesen und kombinieren
+        st.subheader(f"Ist-Tabellen ({len(dateien_ist)} Studiengänge)")
+        df_ist_kombiniert = pd.DataFrame()
         
-        with col1:
-            st.subheader("Soll-Tabelle")
-            if vorname1_auto and nachname1_auto:
-                st.success(f"✅ Erkannt: '{vorname1_auto}' und '{nachname1_auto}'")
-                spalte1_vorname = vorname1_auto
-                spalte1_nachname = nachname1_auto
+        for i, datei_ist in enumerate(dateien_ist):
+            df_ist_temp = pd.read_excel(datei_ist, header=0)
+            
+            vorname_ist = finde_vorname_spalte(df_ist_temp)
+            name_ist = finde_name_spalte(df_ist_temp)
+            
+            if vorname_ist and name_ist:
+                st.success(f"✅ {datei_ist.name}: '{vorname_ist}' und '{name_ist}'")
+                df_ist_kombiniert = pd.concat([df_ist_kombiniert, df_ist_temp], ignore_index=True)
             else:
-                st.error(f"❌ Spalten 'Vorname' und 'Name' nicht gefunden!")
-                st.info(f"Gefunden: Vorname={vorname1_auto}, Name={nachname1_auto}")
-                st.info(f"Verfügbare Spalten: {', '.join(df1.columns)}")
-                st.stop()
-        
-        with col2:
-            st.subheader("Ist-Tabelle")
-            if vorname2_auto and nachname2_auto:
-                st.success(f"✅ Erkannt: '{vorname2_auto}' und '{nachname2_auto}'")
-                spalte2_vorname = vorname2_auto
-                spalte2_nachname = nachname2_auto
-            else:
-                st.error(f"❌ Spalten 'Vorname' und 'Name' nicht gefunden!")
-                st.info(f"Gefunden: Vorname={vorname2_auto}, Name={nachname2_auto}")
-                st.info(f"Verfügbare Spalten: {', '.join(df2.columns)}")
+                st.error(f"❌ {datei_ist.name}: Spalten nicht gefunden!")
+                st.info(f"Verfügbare Spalten: {', '.join(df_ist_temp.columns)}")
                 st.stop()
         
         # Vergleichen-Button
         if st.button("🔍 Listen vergleichen", type="primary", use_container_width=True):
             # Namen kombinieren: Vorname + Nachname
-            df1['vollname'] = df1[spalte1_vorname].astype(str).str.strip() + ' ' + df1[spalte1_nachname].astype(str).str.strip()
-            df2['vollname'] = df2[spalte2_vorname].astype(str).str.strip() + ' ' + df2[spalte2_nachname].astype(str).str.strip()
+            df_soll['vollname'] = df_soll[vorname_soll].astype(str).str.strip() + ' ' + df_soll[name_soll].astype(str).str.strip()
+            df_ist_kombiniert['vollname'] = df_ist_kombiniert[vorname_soll].astype(str).str.strip() + ' ' + df_ist_kombiniert[name_soll].astype(str).str.strip()
             
             # Daten extrahieren und bereinigen
-            namen1 = set(df1['vollname'].dropna().str.strip())
-            namen2 = set(df2['vollname'].dropna().str.strip())
+            namen_soll = set(df_soll['vollname'].dropna().str.strip())
+            namen_ist = set(df_ist_kombiniert['vollname'].dropna().str.strip())
             
             # Leere Strings und "nan nan" entfernen
-            namen1 = {name for name in namen1 if name and name.strip() and name != 'nan nan'}
-            namen2 = {name for name in namen2 if name and name.strip() and name != 'nan nan'}
+            namen_soll = {name for name in namen_soll if name and name.strip() and name != 'nan nan'}
+            namen_ist = {name for name in namen_ist if name and name.strip() and name != 'nan nan'}
             
             # Vergleich durchführen
-            fehlen_in_ist = sorted(namen1 - namen2)
-            ueberfluessig_in_ist = sorted(namen2 - namen1)
+            fehlen_in_ist = sorted(namen_soll - namen_ist)
+            ueberfluessig_in_ist = sorted(namen_ist - namen_soll)
             
             # Ergebnisse anzeigen
             st.markdown("---")
@@ -156,24 +157,25 @@ if datei1 and datei2:
     except Exception as e:
         st.error(f"❌ Fehler beim Verarbeiten der Dateien: {e}")
 
-elif datei1 or datei2:
-    st.info("ℹ️ Bitte beide Excel-Dateien hochladen, um den Vergleich zu starten.")
+elif datei_soll or dateien_ist:
+    st.info("ℹ️ Bitte lade die Soll-Tabelle UND mindestens eine Ist-Tabelle hoch.")
 else:
-    st.info("👈 Bitte lade beide Excel-Dateien in der Sidebar hoch, um zu beginnen.")
+    st.info("👈 Bitte lade die Soll-Tabelle und Ist-Tabellen in der Sidebar hoch, um zu beginnen.")
     
     # Anleitung
     with st.expander("📖 Anleitung"):
         st.markdown("""
         ### So funktioniert's:
         
-        1. **Soll-Tabelle hochladen** - Die Referenztabelle mit den erwarteten Einträgen
-        2. **Ist-Tabelle hochladen** - Die zu prüfende Tabelle
-        3. **Spalten auswählen** - Wähle für jede Tabelle die zu vergleichende Spalte
-        4. **Vergleichen** - Klicke auf "Listen vergleichen"
+        1. **Soll-Tabelle hochladen** - Die Referenztabelle mit allen erwarteten Namen
+        2. **Ist-Tabellen hochladen** - Eine oder mehrere Excel-Dateien (z.B. verschiedene Studiengänge)
+        3. **Automatische Erkennung** - Spalten "Vorname" und "Name" werden automatisch gefunden
+        4. **Vergleichen** - Alle Ist-Tabellen werden kombiniert und mit dem Soll verglichen
         5. **Exportieren** - Optional: Lade das Ergebnis als Excel herunter
         
         ### Format der Excel-Dateien:
-        - Zeile 3 muss die Spaltenüberschriften enthalten
-        - Daten ab Zeile 4
+        - Zeile 1 muss die Spaltenüberschriften "Vorname" und "Name" enthalten
+        - Daten ab Zeile 2
         - Unterstützte Formate: .xlsx, .xls
+        - Du kannst mehrere Ist-Tabellen gleichzeitig hochladen
         """)
