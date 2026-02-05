@@ -4,7 +4,7 @@ import io
 
 st.set_page_config(page_title="Excel Namenslisten-Vergleich", layout="wide")
 
-st.title("📊 Excel Namenslisten-Vergleich")
+st.title("Excel Namenslisten-Vergleich")
 st.markdown("Vergleiche zwei Excel-Dateien und finde Unterschiede zwischen Soll- und Ist-Tabelle")
 
 # Sidebar für Datei-Uploads
@@ -29,21 +29,27 @@ if datei1 and datei2:
         
         with col1:
             st.subheader("Soll-Tabelle")
-            spalte1 = st.selectbox("Spalte auswählen:", df1.columns, key="spalte1")
+            spalte1_vorname = st.selectbox("Vorname-Spalte:", df1.columns, key="spalte1_vorname")
+            spalte1_nachname = st.selectbox("Nachname-Spalte:", df1.columns, key="spalte1_nachname")
         
         with col2:
             st.subheader("Ist-Tabelle")
-            spalte2 = st.selectbox("Spalte auswählen:", df2.columns, key="spalte2")
+            spalte2_vorname = st.selectbox("Vorname-Spalte:", df2.columns, key="spalte2_vorname")
+            spalte2_nachname = st.selectbox("Nachname-Spalte:", df2.columns, key="spalte2_nachname")
         
         # Vergleichen-Button
         if st.button("🔍 Listen vergleichen", type="primary", use_container_width=True):
-            # Daten extrahieren und bereinigen
-            namen1 = set(df1[spalte1].dropna().astype(str).str.strip())
-            namen2 = set(df2[spalte2].dropna().astype(str).str.strip())
+            # Namen kombinieren: Vorname + Nachname
+            df1['vollname'] = df1[spalte1_vorname].astype(str).str.strip() + ' ' + df1[spalte1_nachname].astype(str).str.strip()
+            df2['vollname'] = df2[spalte2_vorname].astype(str).str.strip() + ' ' + df2[spalte2_nachname].astype(str).str.strip()
             
-            # Leere Strings entfernen
-            namen1 = {name for name in namen1 if name}
-            namen2 = {name for name in namen2 if name}
+            # Daten extrahieren und bereinigen
+            namen1 = set(df1['vollname'].dropna().str.strip())
+            namen2 = set(df2['vollname'].dropna().str.strip())
+            
+            # Leere Strings und "nan nan" entfernen
+            namen1 = {name for name in namen1 if name and name.strip() and name != 'nan nan'}
+            namen2 = {name for name in namen2 if name and name.strip() and name != 'nan nan'}
             
             # Vergleich durchführen
             fehlen_in_ist = sorted(namen1 - namen2)
